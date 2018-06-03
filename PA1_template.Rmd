@@ -4,22 +4,92 @@ output:
   html_document:
     keep_md: true
 ---
-
-
 ## Loading and preprocessing the data
 
 
+```{r, echo=TRUE}
 
-## What is mean total number of steps taken per day?
+unzip("D:/Users/philcarmine/Documents/RepData_PeerAssessment1-master/RepData_PeerAssessment1-master/activity.zip")
+dataset <- read.csv("D:/Users/philcarmine/Documents/RepData_PeerAssessment1-master/RepData_PeerAssessment1-master/activity.csv")
+library("dplyr")
+totalperday <- aggregate(dataset$steps, by=list(dataset$date), FUN=sum)
+totalperday <- data.frame(Date=totalperday$Group.1, Steps=totalperday$x)
+
+```
+
+## Histogram of total number of steps taken each day
+
+```{r totalperday=TRUE}
+steps <- totalperday$Steps
+steps <- na.omit(steps)
+hist(steps)
+
+```
+
+## What is mean and median total number of steps taken per day?
+
+```{r steps, echo = TRUE}
+
+data.frame(Mean = mean(steps), Median = median(steps))
 
 
+```
 
-## What is the average daily activity pattern?
+## Time series plot showing average steps per day
 
+```{r dataset}
+datasetNA <- na.omit(dataset)
+avgstepsperday <- aggregate(datasetNA$steps, by=list(datasetNA$date), FUN=mean)
+avgstepsperday <- data.frame(Date = avgstepsperday$Group.1, AvgStepsPerInterval = avgstepsperday$x)
+with(avgstepsperday, (plot(avgstepsperday$Date, avgstepsperday$AvgStepsPerInterval, type = "n", xlab = "Date", ylab = "AvgStepsPerInterval")))
+points(avgstepsperday$Date, avgstepsperday$AvgStepsPerInterval, type = "l")
 
+```
+
+## 5-minute Interval with highest average  
+
+```{r datasetNA}
+intervalstepavg <- aggregate(datasetNA$steps, by=list(datasetNA$interval), FUN = mean)
+intervalstepavg <- data.frame(Interval = intervalstepavg$Group.1, AvgSteps = intervalstepavg$x)
+intervalstepavg <- intervalstepavg[order(intervalstepavg$AvgSteps),]
+tail(intervalstepavg, 1)
+
+```
 
 ## Imputing missing values
 
+As there are entire days with missing values, the strategy taken to impute missing values will be to impute the mean number of steps for that interval across all days into the interval for any given day that the value is missing
 
+```{r}
+
+datasetimputed <- inner_join(dataset, intervalstepavg, by = c("interval" = "Interval"))
+datasetimputed$steps <- ifelse(is.na(datasetimputed$steps), datasetimputed$AvgSteps, datasetimputed$steps)
+
+```
+
+## Total steps per day (after imputing interval mean for missing values)
+
+```{r datasetimputed}
+
+totalperdayimputed <- aggregate(datasetimputed$steps, by=list(datasetimputed$date), FUN=sum)
+hist(totalperdayimputed$x, xlab = "Total Steps per Day", main = "Histogram of Total Steps per Day", breaks = 12)
+
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+
+library(chron)
+isweekend <- is.weekend(datasetimputed$date)
+isweekend <- data.frame(isweekend = isweekend)
+datasetimputed <- cbind(datasetimputed, isweekend)
+weekendanalysis <- aggregate(datasetimputed$steps, by=list(datasetimputed$interval, datasetimputed$isweekend), FUN=mean)
+par(mfrow = c(2,1))
+with(weekendanalysis, plot(Group.1, x, type = "n", xlab = "Interval", ylab = "Number of Steps", main = "Weekend"))
+  with(subset(weekendanalysis, Group.2 == "TRUE"), points(Group.1, x, type = "l"))
+  with(weekendanalysis, plot(Group.1, x, type = "n", xlab = "Interval", ylab = "Number of Steps", main = "Weekday"))
+  with(subset(weekendanalysis, Group.2 == "FALSE"), points(Group.1, x, type = "l"))
+
+```
+
